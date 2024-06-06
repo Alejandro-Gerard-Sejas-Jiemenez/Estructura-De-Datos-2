@@ -151,8 +151,49 @@ protected void dividirNodoSinRaiz(NodoMVias<K,V> nodoActual,NodoMVias<K, V> nodo
         }
        }
     }
+///el dividirNodo 2 no funcona correctamente
+    public void dividirNodo2(NodoMVias<K, V> nodo, Stack<NodoMVias<K, V>> pilaDeAncestros) {
+        int puntoMedio = this.orden / 2;
+        NodoMVias<K, V> nuevoNodo = new NodoMVias<>(this.orden);
 
-//----------------------------------------------------------------------------------------------------------------------
+        // Mover claves y valores de la derecha al nuevo nodo
+        for (int i = puntoMedio + 1; i < this.orden; i++) {
+            nuevoNodo.setClave(i - (puntoMedio + 1), nodo.getClave(i));
+            nuevoNodo.setValor(i - (puntoMedio + 1), nodo.getValor(i));
+            nuevoNodo.setHijo(i - (puntoMedio + 1), nodo.getHijo(i));
+            nodo.setClave(i, null);
+            nodo.setValor(i, null);
+            nodo.setHijo(i, null);
+        }
+        nuevoNodo.setHijo(this.orden - (puntoMedio + 1), nodo.getHijo(this.orden));
+        nodo.setHijo(this.orden, NodoMVias.nodoVacio());
+
+        K claveMedio = nodo.getClave(puntoMedio);
+        V valorMedio = nodo.getValor(puntoMedio);
+        nodo.setClave(puntoMedio, null);
+        nodo.setValor(puntoMedio, null);
+
+        if (pilaDeAncestros.isEmpty()) {
+            // Crear una nueva raíz
+            this.raiz = new NodoMVias<>(this.orden);
+            this.raiz.setClave(0, claveMedio);
+            this.raiz.setValor(0, valorMedio);
+            this.raiz.setHijo(0, nodo);
+            this.raiz.setHijo(1, nuevoNodo);
+        } else {
+            NodoMVias<K, V> nodoPadre = pilaDeAncestros.pop();
+            int posicionInsertarEnPadre = super.buscarPosicionDeClave(nodoPadre, claveMedio);
+            super.insertarClaveValorOrdenando(nodoPadre, claveMedio, valorMedio);
+            nodoPadre.setHijo(posicionInsertarEnPadre + 1, nuevoNodo);
+
+            if (nodoPadre.nroDeClavesNoVacias() > this.nroMaxClaves) {
+                dividirNodo2(nodoPadre, pilaDeAncestros);
+            }
+        }
+    }
+
+
+    //----------------------------------------------------------------------------------------------------------------------
     protected NodoMVias<K,V>buscarNodoDeLaClave(K claveAEliminar,Stack<NodoMVias<K,V>> pilaAncestros){
         //supuestamente funciona
             if (!esArbolVacio()) {
@@ -179,69 +220,139 @@ protected void dividirNodoSinRaiz(NodoMVias<K,V> nodoActual,NodoMVias<K, V> nodo
             }
         return NodoMVias.nodoVacio();
     }
+//--------------------------------------------------------------------------------------------
+private void prestarOFusionar(NodoMVias<K, V> nodo, Stack<NodoMVias<K, V>> pilaDeAncestros) {
+    NodoMVias<K, V> padre = pilaDeAncestros.pop();
+    int posicionDeNodo = this.buscarPosicionDeHijoEnPadre(padre, nodo);
 
+    // Intentar prestar de un hermano derecho
+    if (posicionDeNodo < padre.nroDeClavesNoVacias() && !padre.esHijoVacio(posicionDeNodo + 1)) {
+        NodoMVias<K, V> hermanoDerecho = padre.getHijo(posicionDeNodo + 1);
+        if (hermanoDerecho.nroDeClavesNoVacias() > this.nroMinClaves) {
+            this.prestarDeHermanoDerecho(nodo, padre, hermanoDerecho, posicionDeNodo);
+            return;
+        }
+    }
 
+    // Intentar prestar de un hermano izquierdo
+    if (posicionDeNodo > 0 && !padre.esHijoVacio(posicionDeNodo - 1)) {
+        NodoMVias<K, V> hermanoIzquierdo = padre.getHijo(posicionDeNodo - 1);
+        if (hermanoIzquierdo.nroDeClavesNoVacias() > this.nroMinClaves) {
+            this.prestarDeHermanoIzquierdo(nodo, padre, hermanoIzquierdo, posicionDeNodo);
+            return;
+        }
+    }
 
+    // Si no podemos prestar, fusionar con un hermano
+    if (posicionDeNodo > 0 && !padre.esHijoVacio(posicionDeNodo - 1)) {
+        NodoMVias<K, V> hermanoIzquierdo = padre.getHijo(posicionDeNodo - 1);
+        this.fusionarConHermanoIzquierdo(nodo, padre, hermanoIzquierdo, posicionDeNodo);
+    } else if (posicionDeNodo < padre.nroDeClavesNoVacias() && !padre.esHijoVacio(posicionDeNodo + 1)) {
+        NodoMVias<K, V> hermanoDerecho = padre.getHijo(posicionDeNodo + 1);
+        this.fusionarConHermanoDerecho(nodo, padre, hermanoDerecho, posicionDeNodo);
+    }
 
+    if (padre.nroDeClavesNoVacias() < this.nroMinClaves) {
+        this.prestarOFusionar(padre, pilaDeAncestros);
+    }
+    }
 
-    protected NodoMVias<K, V> prestarOFusionar(NodoMVias<K, V> nodo, Stack<NodoMVias<K, V>> pilaAncestros) {
-        if (nodo.esHoja()) {
-            return nodo;
-        } else {
-            int posicion = buscarPosicionDeClave(nodo, nodo.getClave(0));
-            NodoMVias<K,V> hijo = nodo.getHijo(posicion);
-            if (hijo.nroDeClavesNoVacias() > this.orden / 2) {
-                K clavePrestada = hijo.getClave(hijo.nroDeClavesNoVacias() - 1);
-                V valorPrestado = eliminar(clavePrestada); // Llamar al método eliminar
-                nodo.setClave(posicion, clavePrestada);
-                nodo.setValor(posicion, valorPrestado);
-                return nodo;
-            } else {
-                NodoMVias<K, V> hermano = obtenerHermano(nodo, pilaAncestros, posicion);
-                if (hermano != null && hermano.nroDeClavesNoVacias() > this.orden / 2) {
-                    K clavePrestada = hermano.getClave(0);
-                    V valorPrestado = eliminar(clavePrestada); // Llamar al método eliminar
-                    nodo.setClave(posicion, clavePrestada);
-                    nodo.setValor(posicion, valorPrestado);
-                    return nodo;
-                } else {
-                    fusionarHijos(nodo, pilaAncestros, posicion);
-                    return nodo;
-                }
+    private int buscarPosicionDeHijoEnPadre(NodoMVias<K, V> padre, NodoMVias<K, V> hijo) {
+        for (int i = 0; i <= padre.nroDeClavesNoVacias(); i++) {
+            if (padre.getHijo(i) == hijo) {
+                return i;
             }
         }
+        return -1; // No se encontró el hijo
     }
-    protected NodoMVias<K, V> obtenerHermano(NodoMVias<K, V> nodo, Stack<NodoMVias<K, V>> pilaAncestros, int posicion) {
-        NodoMVias<K, V> padre = pilaAncestros.pop();
-        int posicionPadre = buscarPosicionDeClave(padre, nodo.getClave(posicion));
-        if (posicionPadre > 0) {
-            return padre.getHijo(posicionPadre - 1);
-        } else {
-            return padre.getHijo(posicionPadre + 1);
+
+    private void prestarDeHermanoIzquierdo(NodoMVias<K, V> nodo, NodoMVias<K, V> padre, NodoMVias<K, V> hermanoIzquierdo, int posicionDeNodo) {
+        K claveDePadre = padre.getClave(posicionDeNodo - 1);
+        V valorDePadre = padre.getValor(posicionDeNodo - 1);
+        K claveDeHermano = hermanoIzquierdo.getClave(hermanoIzquierdo.nroDeClavesNoVacias() - 1);
+        V valorDeHermano = hermanoIzquierdo.getValor(hermanoIzquierdo.nroDeClavesNoVacias() - 1);
+        NodoMVias<K, V> hijoDeHermano = hermanoIzquierdo.getHijo(hermanoIzquierdo.nroDeClavesNoVacias());
+
+        for (int i = nodo.nroDeClavesNoVacias() - 1; i >= 0; i--) {
+            nodo.setClave(i + 1, nodo.getClave(i));
+            nodo.setValor(i + 1, nodo.getValor(i));
+            nodo.setHijo(i + 2, nodo.getHijo(i + 1));
         }
+        nodo.setClave(0, claveDePadre);
+        nodo.setValor(0, valorDePadre);
+        nodo.setHijo(1, nodo.getHijo(0));
+        nodo.setHijo(0, hijoDeHermano);
+
+        padre.setClave(posicionDeNodo - 1, claveDeHermano);
+        padre.setValor(posicionDeNodo - 1, valorDeHermano);
+        //hermanoIzquierdo.eliminarClaveDeNodoDePosicion(hermanoIzquierdo.nroDeClavesNoVacias() - 1);
+        super.eliminarClaveDeNodoDePosicion(hermanoIzquierdo,hermanoIzquierdo.nroDeClavesNoVacias()-1);
     }
-    protected void fusionarHijos(NodoMVias<K, V> nodo, Stack<NodoMVias<K, V>> pilaAncestros, int posicion) {
-        NodoMVias<K, V> hijo = nodo.getHijo(posicion);
-        NodoMVias<K, V> hermano = obtenerHermano(nodo, pilaAncestros, posicion);
-        hijo.setClave(hijo.nroDeClavesNoVacias(), nodo.getClave(posicion));
-        hijo.setValor(hijo.nroDeClavesNoVacias(), nodo.getValor(posicion));
-        for (int i = 0; i < hermano.nroDeClavesNoVacias(); i++) {
-            hijo.setClave(hijo.nroDeClavesNoVacias() + i + 1, hermano.getClave(i));
-            hijo.setValor(hijo.nroDeClavesNoVacias() + i + 1, hermano.getValor(i));
+
+    private void prestarDeHermanoDerecho(NodoMVias<K, V> nodo, NodoMVias<K, V> padre, NodoMVias<K, V> hermanoDerecho, int posicionDeNodo) {
+        K claveDePadre = padre.getClave(posicionDeNodo);
+        V valorDePadre = padre.getValor(posicionDeNodo);
+        K claveDeHermano = hermanoDerecho.getClave(0);
+        V valorDeHermano = hermanoDerecho.getValor(0);
+        NodoMVias<K, V> hijoDeHermano = hermanoDerecho.getHijo(0);
+
+        nodo.setClave(nodo.nroDeClavesNoVacias(), claveDePadre);
+        nodo.setValor(nodo.nroDeClavesNoVacias(), valorDePadre);
+        nodo.setHijo(nodo.nroDeClavesNoVacias() + 1, hijoDeHermano);
+
+        padre.setClave(posicionDeNodo, claveDeHermano);
+        padre.setValor(posicionDeNodo, valorDeHermano);
+        //hermanoDerecho.eliminarClaveDeNodoDePosicion(0);
+        super.eliminarClaveDeNodoDePosicion(hermanoDerecho,0);
+    }
+
+    private void fusionarConHermanoIzquierdo(NodoMVias<K, V> nodo, NodoMVias<K, V> padre, NodoMVias<K, V> hermanoIzquierdo, int posicionDeNodo) {
+        K claveDePadre = padre.getClave(posicionDeNodo - 1);
+        V valorDePadre = padre.getValor(posicionDeNodo - 1);
+
+        hermanoIzquierdo.setClave(hermanoIzquierdo.nroDeClavesNoVacias(), claveDePadre);
+        hermanoIzquierdo.setValor(hermanoIzquierdo.nroDeClavesNoVacias(), valorDePadre);
+
+        for (int i = 0; i < nodo.nroDeClavesNoVacias(); i++) {
+            hermanoIzquierdo.setClave(hermanoIzquierdo.nroDeClavesNoVacias() + 1 + i, nodo.getClave(i));
+            hermanoIzquierdo.setValor(hermanoIzquierdo.nroDeClavesNoVacias() + 1 + i, nodo.getValor(i));
+            hermanoIzquierdo.setHijo(hermanoIzquierdo.nroDeClavesNoVacias() + 1 + i, nodo.getHijo(i));
         }
-        eliminarClaveDeNodoDePosicion(nodo, posicion);
-        nodo.setHijo(posicion, hijo);
-        nodo.setHijo(posicion + 1, NodoMVias.nodoVacio());
+        hermanoIzquierdo.setHijo(hermanoIzquierdo.nroDeClavesNoVacias() + 1, nodo.getHijo(nodo.nroDeClavesNoVacias()));
+
+        //padre.eliminarClaveDeNodoDePosicion(posicionDeNodo - 1);
+        super.eliminarClaveDeNodoDePosicion(padre,posicionDeNodo-1);
+        padre.setHijo(posicionDeNodo, hermanoIzquierdo);
+    }
+
+    private void fusionarConHermanoDerecho(NodoMVias<K, V> nodo, NodoMVias<K, V> padre, NodoMVias<K, V> hermanoDerecho, int posicionDeNodo) {
+        K claveDePadre = padre.getClave(posicionDeNodo);
+        V valorDePadre = padre.getValor(posicionDeNodo);
+
+        nodo.setClave(nodo.nroDeClavesNoVacias(), claveDePadre);
+        nodo.setValor(nodo.nroDeClavesNoVacias(), valorDePadre);
+
+        for (int i = 0; i < hermanoDerecho.nroDeClavesNoVacias(); i++) {
+            nodo.setClave(nodo.nroDeClavesNoVacias() + 1 + i, hermanoDerecho.getClave(i));
+            nodo.setValor(nodo.nroDeClavesNoVacias() + 1 + i, hermanoDerecho.getValor(i));
+            nodo.setHijo(nodo.nroDeClavesNoVacias() + 1 + i, hermanoDerecho.getHijo(i));
+        }
+        nodo.setHijo(nodo.nroDeClavesNoVacias() + 1, hermanoDerecho.getHijo(hermanoDerecho.nroDeClavesNoVacias()));
+
+        //padre.eliminarClaveDeNodoDePosicion(posicionDeNodo);
+        super.eliminarClaveDeNodoDePosicion(padre,posicionDeNodo);
+        padre.setHijo(posicionDeNodo, nodo);
     }
 
 
-    protected NodoMVias<K,V>obtenerNodoPredecesor(Stack<NodoMVias<K,V>> pilaDeAncestros
-            ,NodoMVias<K,V>nodoDeLaClaveAEliminar) {
-        while (!nodoDeLaClaveAEliminar.esHoja()) {
-            pilaDeAncestros.push(nodoDeLaClaveAEliminar);
-            nodoDeLaClaveAEliminar = nodoDeLaClaveAEliminar.getHijo(nodoDeLaClaveAEliminar.nroDeClavesNoVacias());
+    //------------------------------------------
+    private NodoMVias<K, V> obtenerNodoPredecesor(Stack<NodoMVias<K, V>> pilaDeAncestros, NodoMVias<K, V> nodoHijoIzquierdo) {
+        NodoMVias<K, V> nodoActual = nodoHijoIzquierdo;
+        while (!nodoActual.esHijoVacio(nodoActual.nroDeClavesNoVacias())) {
+            pilaDeAncestros.push(nodoActual);
+            nodoActual = nodoActual.getHijo(nodoActual.nroDeClavesNoVacias());
         }
-        return nodoDeLaClaveAEliminar;
+        return nodoActual;
     }
 
     @Override
