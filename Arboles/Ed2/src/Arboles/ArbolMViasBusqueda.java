@@ -14,6 +14,7 @@ public class ArbolMViasBusqueda<K extends Comparable <K>,V> implements IArbolBus
     public ArbolMViasBusqueda() {
 
         this.orden = ArbolMViasBusqueda.ORDEN_MINIMO;
+        toString();
     }
 
     public ArbolMViasBusqueda(int orden) throws OrdenInvalidoExcepcion {
@@ -107,7 +108,7 @@ public class ArbolMViasBusqueda<K extends Comparable <K>,V> implements IArbolBus
             if (claveNodoTurno.compareTo(claveInsetar) > 0) {
                 return i;
             }
-            if (claveNodoTurno.compareTo(claveInsetar) < 0 ) {
+            if (claveNodoTurno.compareTo(claveInsetar) < 0 && i== nodo.nroDeClavesNoVacias()-1 ) {
                 return i+1;
             }
         }
@@ -414,8 +415,46 @@ public class ArbolMViasBusqueda<K extends Comparable <K>,V> implements IArbolBus
             return Recorrido;
         }
     }
+    @Override
+    public String toString() {
+        return crearRepresentacion(raiz, "", "", false);
+    }
 
+    private String crearRepresentacion(NodoMVias<K, V> nodo, String representacion, String prefijo, boolean esIzquierdo) {
+        if (NodoMVias.NodoVacio(nodo)) {
+            return representacion + prefijo + (esIzquierdo ? "├──" : "└──") + "null\n";
+        }
 
+        // Agregar claves del nodo actual a la representación
+        representacion += prefijo + (esIzquierdo ? "├──" : "└──") + "[";
+        for (int i = 0; i <this.orden-1; i++) {
+            if (!nodo.esDatoVacio(i)) {
+                representacion += nodo.getClave(i);
+                if (i < nodo.nroDeClavesNoVacias() - 1) {
+                    representacion += ", ";
+                }
+            }else {
+                representacion += "  ";
+                //if (i < nodo.nroDeClavesNoVacias() - 1) {
+                    representacion += ", ";
+            }
+        }
+        representacion += "]\n";
+
+        // Preparar prefijo para los hijos
+        String nuevoPrefijo = prefijo + (esIzquierdo ? "│   " : "    ");
+
+        // Llamar recursivamente para cada hijo
+        for (int i = 0; i <= nodo.nroDeClavesNoVacias(); i++) {
+            if (!nodo.esHijoVacio(i)) {
+                representacion = crearRepresentacion(nodo.getHijo(i), representacion, nuevoPrefijo, i < nodo.nroDeClavesNoVacias());
+            } else {
+                representacion += nuevoPrefijo + (i < nodo.nroDeClavesNoVacias() ? "├──" : "└──") + "null\n";
+            }
+        }
+
+        return representacion;
+    }
 
 }
 
